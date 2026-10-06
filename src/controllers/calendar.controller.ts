@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import axios from 'axios';
 
 const prisma = new PrismaClient();
 
@@ -78,6 +79,34 @@ export const createEvent = async (req: Request, res: Response): Promise<void> =>
         participants: true
       }
     });
+
+    // --- แจ้งเตือนผ่าน LINE Messaging API (Broadcast) ---
+    const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+    if (LINE_TOKEN) {
+      try {
+        const startDateTh = new Date(start_datetime).toLocaleDateString('th-TH');
+        const startTimeTh = new Date(start_datetime).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+        
+        const messageText = `📅 มีกิจกรรมใหม่เพิ่มในปฏิทิน!\n\n📌 หัวข้อ: ${title}\n📍 สถานที่: ${location || 'ไม่ระบุ'}\n🕒 วันเวลา: ${startDateTh} เวลา ${startTimeTh}\n📝 รายละเอียด: ${description || '-'}`;
+        
+        await axios.post('https://api.line.me/v2/bot/message/broadcast', {
+          messages: [
+            {
+              type: 'text',
+              text: messageText
+            }
+          ]
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${LINE_TOKEN}`
+          }
+        });
+        console.log('✅ ส่งการแจ้งเตือน LINE สำเร็จ');
+      } catch (lineErr: any) {
+        console.error('❌ เกิดข้อผิดพลาดในการส่ง LINE:', lineErr.response?.data || lineErr.message);
+      }
+    }
 
     res.status(201).json(newEvent);
   } catch (error) {
