@@ -33,7 +33,7 @@ export const updateUserRole = async (req: Request, res: Response): Promise<void>
     if (status) data.status = status;
 
     const updatedUser = await prisma.user.update({
-      where: { id: parseInt(id) },
+      where: { id: parseInt(id as string) },
       data,
       select: {
         id: true,
@@ -55,7 +55,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
   try {
     const { id } = req.params;
     await prisma.user.delete({
-      where: { id: parseInt(id) },
+      where: { id: parseInt(id as string) },
     });
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
