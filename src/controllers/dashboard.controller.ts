@@ -7,20 +7,10 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
   try {
     const totalEmployees = await prisma.employee.count();
     
-    // New employees in last 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const newEmployees = await prisma.employee.count({
-      where: {
-        start_date: {
-          gte: thirtyDaysAgo
-        }
-      }
-    });
-    
-    // KPI Data
+    // KPI Data - Status distribution
     const allKpis = await prisma.kpi.findMany();
     let kpiCompletedStr = '0%';
+    let averageKpiScoreStr = '0%';
     let kpiData = [
       { name: 'Achieved', value: 0 },
       { name: 'In Progress', value: 0 },
@@ -38,43 +28,15 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
         { name: 'Below Target', value: below },
       ];
       kpiCompletedStr = `${Math.round((achieved / allKpis.length) * 100)}%`;
+      
+      // Calculate overall average KPI score across all KPIs
+      const totalScoreSum = allKpis.reduce((acc, k) => acc + (k.score || 0), 0);
+      const totalWeightSum = allKpis.reduce((acc, k) => acc + (k.weight || 100), 0);
+      const overallScore = totalWeightSum > 0 ? (totalScoreSum / totalWeightSum) * 100 : 0;
+      averageKpiScoreStr = `${Math.round(overallScore)}%`;
     }
 
-    // Training Hours
-    const allTrainings = await prisma.training.aggregate({
-      _sum: {
-        hours: true
-      }
-    });
-    const trainingHours = allTrainings._sum.hours || 0;
-
-    // Growth Data (Last 6 months)
-    const growthData = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      d.setDate(1); // Start of that month
-      d.setHours(0, 0, 0, 0);
-      
-      const nextMonth = new Date(d);
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
-
-      const count = await prisma.employee.count({
-        where: {
-          start_date: {
-            lt: nextMonth
-          }
-        }
-      });
-      
-      const monthName = d.toLocaleString('default', { month: 'short' });
-      growthData.push({
-        name: monthName,
-        employees: count
-      });
-    }
-
-    // Individual KPI Achievement (Top 10)
+    // Individual KPI Achievement (Top 10) & Department KPI aggregation
     const employeesWithKpi = await prisma.employee.findMany({
       include: { kpis: true }
     });
@@ -85,24 +47,59 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
         const totalWeight = emp.kpis.reduce((sum, k) => sum + (k.weight || 100), 0);
         const totalScore = emp.kpis.reduce((sum, k) => sum + (k.score || 0), 0);
         let achievement = totalWeight > 0 ? (totalScore / totalWeight) * 100 : 0;
-        if (achievement > 100) achievement = 100; // Cap at 100% for display
+        if (achievement > 100) achievement = 100; // Cap at 100%
 
         return {
           name: `${emp.first_name} ${emp.last_name}`,
-          achievement: Math.round(achievement)
+          department: emp.department,
+          achievement: achievement
         };
-      })
+      });
+
+    // Group by department
+    const deptMap: Record<string, { totalScore: number; count: number }> = {};
+    individualKpiData.forEach(emp => {
+      if (!deptMap[emp.department]) deptMap[emp.department] = { totalScore: 0, count: 0 };
+      deptMap[emp.department].totalScore += emp.achievement;
+      deptMap[emp.department].count += 1;
+    });
+
+    const kpiDepartmentData = Object.keys(deptMap).map(dept => ({
+      name: dept,
+      average: Math.round(deptMap[dept].totalScore / deptMap[dept].count)
+    }));
+
+    const topIndividualKpiData = individualKpiData
+      .map(emp => ({ name: emp.name, achievement: Math.round(emp.achievement) }))
       .sort((a, b) => b.achievement - a.achievement)
-      .slice(0, 10); // Top 10
+      .slice(0, 10);
+
+    // Get today's calendar events (in Thai timezone)
+    const todayStr = new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' });
+    const upcomingEvents = await prisma.calendarEvent.findMany({
+      orderBy: { start_datetime: 'asc' }
+    });
+    
+    const todayEvents = upcomingEvents.filter(event => {
+      const eventDateStr = new Date(event.start_datetime).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' });
+      return eventDateStr === todayStr;
+    }).map(e => ({
+      id: e.id,
+      title: e.title,
+      time: new Date(e.start_datetime).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }),
+      category: e.category,
+      color: e.color
+    }));
 
     res.json({
       totalEmployees,
-      newEmployees,
       kpiCompleted: kpiCompletedStr,
-      trainingHours: trainingHours.toString(),
+      averageKpiScore: averageKpiScoreStr,
+      totalKpis: allKpis.length,
       kpiData,
-      growthData,
-      individualKpiData
+      individualKpiData: topIndividualKpiData,
+      kpiDepartmentData,
+      todayEvents
     });
   } catch (error) {
     console.error(error);
