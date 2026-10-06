@@ -17,3 +17,14 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction): vo
     res.status(401).json({ message: 'Invalid or Expired Token' });
   }
 };
+
+export const requireRole = (roles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const user = (req as any).user;
+    if (!user || !roles.includes(user.role)) {
+      res.status(403).json({ message: 'Access Denied. Insufficient permissions.' });
+      return;
+    }
+    next();
+  };
+};

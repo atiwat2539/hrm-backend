@@ -23,8 +23,10 @@ import dashboardRoutes from './routes/dashboard.routes';
 import reportsRoutes from './routes/reports.routes';
 import notificationRoutes from './routes/notification.routes';
 import searchRoutes from './routes/search.routes';
+import userRoutes from './routes/user.routes';
 
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/kpi', kpiRoutes);
