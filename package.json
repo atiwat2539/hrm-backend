@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "postinstall": "prisma generate",
+    "postinstall": "npx prisma generate",
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "build": "tsc"
