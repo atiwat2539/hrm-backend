@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            Int             @id @default(autoincrement())
+  username      String          @unique
+  email         String          @unique
+  password_hash String
+  role          Role            @default(employee)
+  employee_id   Int?            @unique
+  status        String          @default("active")
+  created_at    DateTime        @default(now())
+  updated_at    DateTime        @updatedAt
+  
+  employee      Employee?       @relation(fields: [employee_id], references: [id])
+  notifications Notification[]
+  audit_logs    AuditLog[]
+}
+
+enum Role {
+  admin
+  hr
+  employee
+}
+
+model Employee {
+  id              Int       @id @default(autoincrement())
+  employee_code   String    @unique
+  title           String?
+  first_name      String
+  last_name       String
+  nickname        String?
+  position        String
+  department      String
+  employment_type String
+  start_date      DateTime
+  status          String    @default("active") // active, inactive, probation
+  manager_id      Int?
+  email           String    @unique
+  phone           String?
+  address         String?
+  profile_image   String?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  user            User?
+  manager         Employee?  @relation("ManagerToEmployee", fields: [manager_id], references: [id])
+  subordinates    Employee[] @relation("ManagerToEmployee")
+  onboarding      Onboarding[]
+  kpis            Kpi[]
+  trainings       EmployeeTraining[]
+  calendar_events CalendarEventParticipant[]
+}
+
+model Onboarding {
+  id                       Int        @id @default(autoincrement())
+  employee_id              Int
+  progress                 Float      @default(0)
+  start_date               DateTime
+  expected_completion_date DateTime?
+  status                   String     @default("not_started") // not_started, in_progress, completed
+  created_at               DateTime   @default(now())
+
+  employee                 Employee   @relation(fields: [employee_id], references: [id])
+  tasks                    OnboardingTask[]
+}
+
+model OnboardingTask {
+  id                 Int        @id @default(autoincrement())
+  onboarding_id      Int
+  task_name          String
+  responsible_person String?
+  due_date           DateTime?
+  status             String     @default("not_started") // not_started, in_progress, completed, overdue
+  completed_at       DateTime?
+  note               String?    @db.Text
+
+  onboarding         Onboarding @relation(fields: [onboarding_id], references: [id])
+}
+
+model Kpi {
+  id          Int      @id @default(autoincrement())
+  employee_id Int
+  period      String   // monthly, quarterly, bi_annually, annually
+  title       String
+  sub_title   String?
+  description String?  @db.Text
+  target      Float
+  actual      Float?
+  unit        String
+  weight      Float
+  score       Float?
+  evidence    String?
+  status      String   @default("pending") // pending, approved, rejected
+  created_at  DateTime @default(now())
+
+  employee    Employee @relation(fields: [employee_id], references: [id])
+  results     KpiResult[]
+}
+
+model KpiResult {
+  id          Int      @id @default(autoincrement())
+  kpi_id      Int
+  month       String   // e.g. "01" (Jan), "02" (Feb)
+  year        Int      // e.g. 2026
+  actual      Float    // performance added for this month
+  note        String?  @db.Text
+  created_at  DateTime @default(now())
+
+  kpi         Kpi      @relation(fields: [kpi_id], references: [id], onDelete: Cascade)
+}
+
+model Training {
+  id            Int      @id @default(autoincrement())
+  training_code String   @unique
+  title         String
+  category      String
+  trainer       String?
+  start_date    DateTime
+  end_date      DateTime
+  location      String?
+  hours         Float
+  budget        Float?
+  created_at    DateTime @default(now())
+
+  employee_trainings EmployeeTraining[]
+}
+
+model EmployeeTraining {
+  id          Int      @id @default(autoincrement())
+  employee_id Int
+  training_id Int
+  result      String?
+  certificate String?
+  note        String?  @db.Text
+  created_at  DateTime @default(now())
+
+  employee    Employee @relation(fields: [employee_id], references: [id])
+  training    Training @relation(fields: [training_id], references: [id])
+}
+
+model CalendarEvent {
+  id             Int      @id @default(autoincrement())
+  title          String
+  description    String?  @db.Text
+  start_datetime DateTime
+  end_datetime   DateTime
+  location       String?
+  organizer      String?
+  category       String?
+  color          String?
+  reminder       String?
+  created_at     DateTime @default(now())
+
+  participants   CalendarEventParticipant[]
+}
+
+model EventCategory {
+  id    Int    @id @default(autoincrement())
+  label String @unique
+  color String @default("#4f46e5")
+}
+
+model CalendarEventParticipant {
+  id              Int           @id @default(autoincrement())
+  event_id        Int
+  employee_id     Int
+  
+  event           CalendarEvent @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  employee        Employee      @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  title      String
+  message    String   @db.Text
+  type       String   @default("info")
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  user       User     @relation(fields: [user_id], references: [id])
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  action      String
+  module      String
+  record_id   Int
+  description String   @db.Text
+  created_at  DateTime @default(now())
+
+  user        User     @relation(fields: [user_id], references: [id])
+}
