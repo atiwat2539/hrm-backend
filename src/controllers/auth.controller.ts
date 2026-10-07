@@ -112,3 +112,22 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     res.status(500).json({ message: 'Server Error' });
   }
 };
+
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+    if (!email) { res.status(400).json({ message: '?????????????' }); return; }
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) { res.status(404).json({ message: '?????????????????????????' }); return; }
+    
+    const defaultPassword = 'password1234';
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(defaultPassword, salt);
+    await prisma.user.update({ where: { email }, data: { password_hash } });
+    
+    res.json({ message: '????????????????????! ?????????????????????????: password1234' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
