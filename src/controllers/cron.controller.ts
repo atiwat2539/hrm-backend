@@ -32,29 +32,119 @@ export const notifyDailyEvents = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // 5. Construct the message
-    let messageText = `📢 แจ้งเตือนกิจกรรมประจำวันนี้ (${todayStr})\n\n`;
+    // 5. Construct Flex Message Body
+    const bodyContents: any[] = [];
     
     todaysEvents.forEach((event, index) => {
       const startTime = new Date(event.start_datetime).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
       const endTime = new Date(event.end_datetime).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
       
-      messageText += `${index + 1}. ${event.title}\n`;
-      messageText += `   🕒 ${startTime} - ${endTime}\n`;
-      if (event.location) messageText += `   📍 ${event.location}\n`;
-      messageText += `\n`;
+      const eventBox: any = {
+        type: 'box',
+        layout: 'vertical',
+        margin: index === 0 ? 'none' : 'lg',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'text',
+            text: event.title,
+            weight: 'bold',
+            size: 'md',
+            color: '#111827',
+            wrap: true
+          },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            spacing: 'sm',
+            contents: [
+              { type: 'text', text: '🕒 เวลา:', color: '#6b7280', size: 'sm', flex: 2 },
+              { type: 'text', text: `${startTime} - ${endTime}`, color: '#374151', size: 'sm', flex: 6, wrap: true }
+            ]
+          }
+        ]
+      };
+
+      if (event.location) {
+        eventBox.contents.push({
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            { type: 'text', text: '📍 สถานที่:', color: '#6b7280', size: 'sm', flex: 2 },
+            { type: 'text', text: event.location, color: '#374151', size: 'sm', flex: 6, wrap: true }
+          ]
+        });
+      }
+
+      bodyContents.push(eventBox);
+
+      // Add separator if not last item
+      if (index < todaysEvents.length - 1) {
+        bodyContents.push({
+          type: 'separator',
+          margin: 'lg',
+          color: '#e5e7eb'
+        });
+      }
     });
 
-    messageText += `ขอให้เป็นวันที่ดีสำหรับการทำงานครับ! ✨`;
+    const flexMessage = {
+      type: 'flex',
+      altText: `📢 แจ้งเตือนกิจกรรมประจำวันนี้ (${todayStr})`,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '📅 ตารางกิจกรรมประจำวัน',
+              weight: 'bold',
+              size: 'xl',
+              color: '#ffffff'
+            },
+            {
+              type: 'text',
+              text: `ประจำวันที่ ${todayStr}`,
+              color: '#ffffffcc',
+              size: 'sm',
+              margin: 'sm'
+            }
+          ],
+          backgroundColor: '#4f46e5',
+          paddingAll: '20px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          paddingAll: '20px',
+          contents: bodyContents
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '✨ ขอให้เป็นวันที่ดีสำหรับการทำงานครับ!',
+              color: '#9ca3af',
+              size: 'sm',
+              align: 'center',
+              wrap: true
+            }
+          ],
+          paddingAll: '16px'
+        }
+      }
+    };
 
     // 6. Send via LINE Broadcast
     await axios.post('https://api.line.me/v2/bot/message/broadcast', {
-      messages: [
-        {
-          type: 'text',
-          text: messageText
-        }
-      ]
+      messages: [flexMessage]
     }, {
       headers: {
         'Content-Type': 'application/json',
