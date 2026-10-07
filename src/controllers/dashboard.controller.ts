@@ -94,6 +94,12 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
       color: e.color
     }));
 
+    // Fetch projects
+    const projects = await prisma.project.findMany({
+      orderBy: { created_at: 'desc' },
+      take: 10
+    });
+
     res.json({
       totalEmployees,
       kpiCompleted: kpiCompletedStr,
@@ -102,7 +108,8 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
       kpiData,
       individualKpiData: topIndividualKpiData,
       kpiDepartmentData,
-      todayEvents
+      todayEvents,
+      projects
     });
   } catch (error) {
     console.error(error);

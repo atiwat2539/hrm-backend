@@ -200,3 +200,15 @@ model AuditLog {
 
   user        User     @relation(fields: [user_id], references: [id])
 }
+
+model Project {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?  @db.Text
+  start_date  DateTime?
+  end_date    DateTime?
+  status      String   @default("not_started") // not_started, in_progress, completed, on_hold
+  progress    Int      @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+}
