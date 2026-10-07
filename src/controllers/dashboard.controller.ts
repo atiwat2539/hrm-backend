@@ -7,8 +7,15 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
   try {
     const totalEmployees = await prisma.employee.count();
     
-    // KPI Data - Status distribution
-    const allKpis = await prisma.kpi.findMany();
+    const d = new Date();
+    // Current Fiscal Year calculation: if month >= 6 (June), it's next year, else current year
+    const currentFy = d.getMonth() + 1 >= 6 ? d.getFullYear() + 1 : d.getFullYear();
+
+    // Fetch all KPIs with their results
+    const allKpis = await prisma.kpi.findMany({
+      include: { results: true }
+    });
+
     let kpiCompletedStr = '0%';
     let averageKpiScoreStr = '0%';
     let kpiData = [
@@ -17,44 +24,80 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
       { name: 'Below Target', value: 0 },
     ];
 
+    // Array to store dynamically calculated scores for employees
+    const empKpiScores: Record<number, { totalWeight: number; totalScore: number }> = {};
+
+    let achieved = 0;
+    let inProgress = 0;
+    let below = 0;
+
+    let overallScoreSum = 0;
+    let overallWeightSum = 0;
+
     if (allKpis.length > 0) {
-      const achieved = allKpis.filter(k => k.status === 'approved').length;
-      const inProgress = allKpis.filter(k => k.status === 'pending').length;
-      const below = allKpis.filter(k => k.status === 'rejected').length;
-      
+      allKpis.forEach(kpi => {
+        let fyTotal = 0;
+        kpi.results.forEach(r => {
+          const m = parseInt(r.month);
+          if (m >= 6 && m <= 12 && r.year === currentFy - 1) fyTotal += r.actual;
+          if (m >= 1 && m <= 5 && r.year === currentFy) fyTotal += r.actual;
+        });
+
+        // Determine status dynamically
+        if (fyTotal >= kpi.target) {
+          achieved++;
+        } else if (fyTotal > 0) {
+          inProgress++;
+        } else {
+          below++;
+        }
+
+        // Calculate score for this KPI (capped at 100%)
+        let scorePercent = kpi.target > 0 ? (fyTotal / kpi.target) * 100 : 0;
+        if (scorePercent > 100) scorePercent = 100;
+
+        const weight = kpi.weight || 100;
+        const weightedScore = (scorePercent * weight) / 100;
+
+        overallScoreSum += weightedScore;
+        overallWeightSum += weight;
+
+        // Aggregate per employee
+        if (!empKpiScores[kpi.employee_id]) {
+          empKpiScores[kpi.employee_id] = { totalWeight: 0, totalScore: 0 };
+        }
+        empKpiScores[kpi.employee_id].totalWeight += weight;
+        empKpiScores[kpi.employee_id].totalScore += weightedScore;
+      });
+
       kpiData = [
         { name: 'Achieved', value: achieved },
         { name: 'In Progress', value: inProgress },
-        { name: 'Below Target', value: below },
+        { name: 'Below Target', value: below }, // Below target or Not Started
       ];
       kpiCompletedStr = `${Math.round((achieved / allKpis.length) * 100)}%`;
       
-      // Calculate overall average KPI score across all KPIs
-      const totalScoreSum = allKpis.reduce((acc, k) => acc + (k.score || 0), 0);
-      const totalWeightSum = allKpis.reduce((acc, k) => acc + (k.weight || 100), 0);
-      const overallScore = totalWeightSum > 0 ? (totalScoreSum / totalWeightSum) * 100 : 0;
+      const overallScore = overallWeightSum > 0 ? (overallScoreSum / overallWeightSum) * 100 : 0;
       averageKpiScoreStr = `${Math.round(overallScore)}%`;
     }
 
     // Individual KPI Achievement (Top 10) & Department KPI aggregation
-    const employeesWithKpi = await prisma.employee.findMany({
-      include: { kpis: true }
-    });
+    const employees = await prisma.employee.findMany();
+    const individualKpiData: any[] = [];
 
-    const individualKpiData = employeesWithKpi
-      .filter(emp => emp.kpis.length > 0)
-      .map(emp => {
-        const totalWeight = emp.kpis.reduce((sum, k) => sum + (k.weight || 100), 0);
-        const totalScore = emp.kpis.reduce((sum, k) => sum + (k.score || 0), 0);
-        let achievement = totalWeight > 0 ? (totalScore / totalWeight) * 100 : 0;
-        if (achievement > 100) achievement = 100; // Cap at 100%
+    employees.forEach(emp => {
+      const stats = empKpiScores[emp.id];
+      if (stats && stats.totalWeight > 0) {
+        let achievement = (stats.totalScore / stats.totalWeight) * 100;
+        if (achievement > 100) achievement = 100;
 
-        return {
+        individualKpiData.push({
           name: `${emp.first_name} ${emp.last_name}`,
           department: emp.department,
           achievement: achievement
-        };
-      });
+        });
+      }
+    });
 
     // Group by department
     const deptMap: Record<string, { totalScore: number; count: number }> = {};
@@ -97,7 +140,8 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
     // Fetch projects
     const projects = await prisma.project.findMany({
       orderBy: { created_at: 'desc' },
-      take: 10
+      take: 10,
+      include: { owner: true, checklists: true }
     });
 
     res.json({
