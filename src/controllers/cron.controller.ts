@@ -103,14 +103,14 @@ export const notifyDailyEvents = async (req: Request, res: Response): Promise<vo
               type: 'text',
               text: '📅 ตารางกิจกรรมประจำวัน',
               weight: 'bold',
-              size: 'xl',
+              size: 'lg',
               color: '#ffffff'
             },
             {
               type: 'text',
               text: `ประจำวันที่ ${todayStr}`,
               color: '#ffffffcc',
-              size: 'sm',
+              size: 'xs',
               margin: 'sm'
             }
           ],
