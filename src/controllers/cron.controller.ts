@@ -142,21 +142,77 @@ export const notifyDailyEvents = async (req: Request, res: Response): Promise<vo
       }
     };
 
-    // 6. Send via LINE Broadcast
-    await axios.post('https://api.line.me/v2/bot/message/broadcast', {
-      messages: [flexMessage]
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${LINE_TOKEN}`
-      }
-    });
+    // 6. Send via LINE (Push to Group if configured, else Broadcast to all)
+    const LINE_GROUP_ID = process.env.LINE_GROUP_ID;
+    
+    if (LINE_GROUP_ID) {
+      await axios.post('https://api.line.me/v2/bot/message/push', {
+        to: LINE_GROUP_ID,
+        messages: [flexMessage]
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${LINE_TOKEN}`
+        }
+      });
+      console.log('✅ Sent daily calendar summary to LINE Group');
+    } else {
+      await axios.post('https://api.line.me/v2/bot/message/broadcast', {
+        messages: [flexMessage]
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${LINE_TOKEN}`
+        }
+      });
+      console.log('✅ Broadcasted daily calendar summary to all users');
+    }
 
-    console.log('✅ Sent daily calendar summary to LINE');
     res.json({ message: 'Daily notification sent successfully', eventsCount: todaysEvents.length });
 
   } catch (error: any) {
     console.error('Error sending daily events:', error?.response?.data || error);
     res.status(500).json({ message: 'Server Error', error: error?.message });
+  }
+};
+import { Request, Response } from 'express';
+import axios from 'axios';
+
+export const handleLineWebhook = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const events = req.body.events;
+    if (!events || events.length === 0) {
+      res.status(200).send('OK');
+      return;
+    }
+
+    const LINE_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+
+    for (const event of events) {
+      if (event.source && event.source.type === 'group') {
+        const groupId = event.source.groupId;
+        
+        if (event.type === 'join' || (event.type === 'message' && event.message.type === 'text' && event.message.text === 'ขอไอดีกลุ่ม')) {
+          await axios.post('https://api.line.me/v2/bot/message/reply', {
+            replyToken: event.replyToken,
+            messages: [
+              {
+                type: 'text',
+                text: "สวัสดีครับ! ผมคือบอทแจ้งเตือน ไอดีของกลุ่มนี้คือ:\n\n" + groupId + "\n\n(นำไอดีนี้ไปตั้งค่าในระบบ Vercel ที่ตัวแปร LINE_GROUP_ID ได้เลยครับ)"
+              }
+            ]
+          }, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': \Bearer \\
+            }
+          });
+        }
+      }
+    }
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('Webhook Error:', error);
+    res.status(500).send('Error');
   }
 };
