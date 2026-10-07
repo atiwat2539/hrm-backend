@@ -87,6 +87,9 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
       id: e.id,
       title: e.title,
       time: new Date(e.start_datetime).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }),
+      end_time: new Date(e.end_datetime).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }),
+      description: e.description || '',
+      location: e.location || '',
       category: e.category,
       color: e.color
     }));
