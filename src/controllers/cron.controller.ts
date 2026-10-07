@@ -175,8 +175,6 @@ export const notifyDailyEvents = async (req: Request, res: Response): Promise<vo
     res.status(500).json({ message: 'Server Error', error: error?.message });
   }
 };
-import { Request, Response } from 'express';
-import axios from 'axios';
 
 export const handleLineWebhook = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -204,7 +202,7 @@ export const handleLineWebhook = async (req: Request, res: Response): Promise<vo
           }, {
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': \Bearer \\
+              'Authorization': `Bearer ${LINE_TOKEN}`
             }
           });
         }
