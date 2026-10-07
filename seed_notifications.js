@@ -10,7 +10,7 @@ async function main() {
         {
           user_id: adminUser.id,
           title: 'ระบบรายงาน (Reports) เปิดใช้งานแล้ว',
-          message: 'สามารถดูกราฟสถิติของพนักงานและคะแนน KPI ได้ที่เมนู Reports',
+          message: 'สามารถดูกราฟสถิติของบุคลากรและคะแนน KPI ได้ที่เมนู Reports',
           type: 'success',
           is_read: false
         },
