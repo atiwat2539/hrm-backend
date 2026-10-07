@@ -57,6 +57,7 @@ model Employee {
   kpis            Kpi[]
   trainings       EmployeeTraining[]
   calendar_events CalendarEventParticipant[]
+  projects        Project[]
 }
 
 model Onboarding {
@@ -205,10 +206,27 @@ model Project {
   id          Int      @id @default(autoincrement())
   name        String
   description String?  @db.Text
+  type        String?  
+  year        Int?     
+  owner_id    Int?     
   start_date  DateTime?
   end_date    DateTime?
   status      String   @default("not_started") // not_started, in_progress, completed, on_hold
   progress    Int      @default(0)
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
+
+  owner       Employee? @relation(fields: [owner_id], references: [id], onDelete: SetNull)
+  checklists  ProjectChecklist[]
+}
+
+model ProjectChecklist {
+  id           Int      @id @default(autoincrement())
+  project_id   Int
+  task_name    String
+  is_completed Boolean  @default(false)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  project      Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
 }
