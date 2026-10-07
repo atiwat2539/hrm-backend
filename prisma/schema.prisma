@@ -230,3 +230,9 @@ model ProjectChecklist {
 
   project      Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
 }
+
+model ProjectType {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+  created_at DateTime @default(now())
+}

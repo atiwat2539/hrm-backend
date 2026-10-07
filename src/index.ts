@@ -30,6 +30,7 @@ import searchRoutes from './routes/search.routes';
 import userRoutes from './routes/user.routes';
 import cronRoutes from './routes/cron.routes';
 import projectRoutes from './routes/project.routes';
+import projectTypeRoutes from './routes/projectType.routes';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -44,6 +45,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/cron', cronRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/project-types', projectTypeRoutes);
 
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'HRM API is running' });
