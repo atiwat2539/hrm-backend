@@ -175,3 +175,21 @@ export const deleteKpi = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ message: 'Server Error' });
   }
 };
+
+export const deleteKpiResults = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    await prisma.kpiResult.deleteMany({
+      where: { kpi_id: Number(id) }
+    });
+    // Also reset actual to 0 on the KPI itself just in case
+    await prisma.kpi.update({
+      where: { id: Number(id) },
+      data: { actual: 0, status: 'Not Started' }
+    });
+    res.json({ message: 'All recorded results deleted successfully' });
+  } catch (error: any) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
