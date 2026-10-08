@@ -12,7 +12,11 @@ export const getKpis = async (req: Request, res: Response): Promise<void> => {
         results: {
           orderBy: [{ year: 'desc' }, { month: 'desc' }]
         }
-      }
+      },
+      orderBy: [
+        { display_order: 'asc' },
+        { id: 'asc' }
+      ]
     });
     res.json(kpis);
   } catch (error) {
@@ -190,6 +194,28 @@ export const deleteKpiResults = async (req: Request, res: Response): Promise<voi
     res.json({ message: 'All recorded results deleted successfully' });
   } catch (error: any) {
     console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// Reorder KPIs
+export const reorderKpis = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { kpis } = req.body; // array of { id, display_order }
+    
+    // Update all in a transaction
+    await prisma.$transaction(
+      kpis.map((kpi: any) => 
+        prisma.kpi.update({
+          where: { id: kpi.id },
+          data: { display_order: kpi.display_order }
+        })
+      )
+    );
+    
+    res.json({ message: 'KPIs reordered successfully' });
+  } catch (error) {
+    console.error('Reorder error:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
